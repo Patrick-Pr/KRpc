@@ -1,12 +1,15 @@
 package dsl
 
+import kotlin.reflect.KType
+import kotlin.reflect.typeOf
+
 sealed interface QueryParam {
-    data class StringParam(val value: String) : QueryParam
-    data class IntParam(val value: Int) : QueryParam
-    data class LongParam(val value: Long) : QueryParam
-    data class FloatParam(val value: Float) : QueryParam
-    data class DoubleParam(val value: Double) : QueryParam
-    data class BoolParam(val value: Boolean) : QueryParam
+    data class StringParam(val key: String) : QueryParam
+    data class IntParam(val key: Int) : QueryParam
+    data class LongParam(val key: Long) : QueryParam
+    data class FloatParam(val key: Float) : QueryParam
+    data class DoubleParam(val key: Double) : QueryParam
+    data class BoolParam(val key: Boolean) : QueryParam
 }
 
 data class PathParam(val name: String) : QueryParam
@@ -26,7 +29,7 @@ class Router internal constructor() {
 
 @KRpcDSL
 class Route internal constructor(val path: String) {
-    internal val endpoints = mutableListOf<Endpoint<*, *>>()
+    val endpoints = mutableListOf<TypedEndpoint<*, *>>()
     val children = mutableListOf<Route>()
 
 
@@ -37,17 +40,46 @@ class Route internal constructor(val path: String) {
 
 data class PathSegment(val slug: String, val children: List<PathSegment>)
 
-data class Endpoint<In : Any, Out : Any> constructor(
-    internal var method: Method,
-    internal val pathParam: PathParam? = null,
-    internal var queryParam: QueryParam? = null,
-    internal val handler: (In) -> Out
-) {}
 
-fun <Out : Any> Route.get(handler: (Unit) -> Out): Unit {
-    val endpoint = Endpoint(Method.GET, null, null, handler)
+interface Endpoint {
+    var method: Method
+    val pathParam: PathParam?
+    var queryParams: List<QueryParam>
+
+    val requestType: KType
+    val responseType: KType
+}
+
+data class TypedEndpoint<In : Any, Out : Any> constructor(
+    override var method: Method,
+    override val pathParam: PathParam?,
+    override var queryParams: List<QueryParam>,
+    override val requestType: KType,
+    override val responseType: KType,
+    val handler: suspend (In) -> Out,
+) : Endpoint {}
+
+inline fun <reified Out : Any> Route.get(queryParams: List<QueryParam>, noinline handler: suspend (Unit) -> Out): Unit {
+    val endpoint = TypedEndpoint(Method.GET, null, queryParams, typeOf<Unit>(), typeOf<Out>(), handler)
     endpoints.add(endpoint)
 }
+
+inline fun <reified In : Any, reified Out : Any> Route.post(
+    noinline handler: suspend (In) -> Out
+): Unit {
+    val endpoint = TypedEndpoint(Method.POST, null, arrayListOf(), typeOf<In>(), typeOf<Out>(), handler)
+    endpoints.add(endpoint)
+}
+
+//inline fun <Out : Any> Route.put(noinline handler: suspend (Unit) -> Out): Unit {
+//    val endpoint = TypedEndpoint(Method.PUT, null, arrayListOf(), handler)
+//    endpoints.add(endpoint)
+//}
+//
+//inline fun <Out : Any> Route.delete(noinline handler: suspend (Unit) -> Out): Unit {
+//    val endpoint = TypedEndpoint(Method.DELETE, null, arrayListOf(), handler)
+//    endpoints.add(endpoint)
+//}
 
 fun Route.route(pathSegment: String, lambda: Route.() -> Unit) {
     val route = Route(pathSegment).apply(lambda)
