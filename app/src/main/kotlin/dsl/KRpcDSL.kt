@@ -23,14 +23,14 @@ enum class Method {
 annotation class KRpcDSL
 
 class Router internal constructor() {
-    val routes = mutableListOf<Route>()
+    val krpcRoutes = mutableListOf<KrpcRoute>()
 
 }
 
 @KRpcDSL
-class Route internal constructor(val path: String) {
-    val endpoints = mutableListOf<TypedEndpoint<*, *>>()
-    val children = mutableListOf<Route>()
+class KrpcRoute internal constructor(val path: String) {
+    val endpoints = mutableListOf<Endpoint>()
+    val children = mutableListOf<KrpcRoute>()
 
 
     override fun toString(): String {
@@ -50,7 +50,16 @@ interface Endpoint {
     val responseType: KType
 }
 
-data class TypedEndpoint<In : Any, Out : Any> constructor(
+data class TypedGetEndpoint<Out : Any> constructor(
+    override var method: Method,
+    override val pathParam: PathParam?,
+    override var queryParams: List<QueryParam>,
+    override val requestType: KType,
+    override val responseType: KType,
+    val handler: suspend () -> Out,
+) : Endpoint {}
+
+data class TypedPostEndpoint<In : Any, Out : Any> constructor(
     override var method: Method,
     override val pathParam: PathParam?,
     override var queryParams: List<QueryParam>,
@@ -59,16 +68,17 @@ data class TypedEndpoint<In : Any, Out : Any> constructor(
     val handler: suspend (In) -> Out,
 ) : Endpoint {}
 
-inline fun <reified Out : Any> Route.get(queryParams: List<QueryParam>, noinline handler: suspend (Unit) -> Out): Unit {
-    val endpoint = TypedEndpoint(Method.GET, null, queryParams, typeOf<Unit>(), typeOf<Out>(), handler)
-    endpoints.add(endpoint)
+inline fun <reified Out : Any> KrpcRoute.get(
+    queryParams: List<QueryParam> = emptyList(),
+    noinline handler: suspend () -> Out
+): Unit {
+    endpoints += TypedGetEndpoint(Method.GET, null, queryParams, typeOf<Unit>(), typeOf<Out>(), handler)
 }
 
-inline fun <reified In : Any, reified Out : Any> Route.post(
+inline fun <reified In : Any, reified Out : Any> KrpcRoute.post(
     noinline handler: suspend (In) -> Out
 ): Unit {
-    val endpoint = TypedEndpoint(Method.POST, null, arrayListOf(), typeOf<In>(), typeOf<Out>(), handler)
-    endpoints.add(endpoint)
+    endpoints += TypedPostEndpoint(Method.POST, null, arrayListOf(), typeOf<In>(), typeOf<Out>(), handler)
 }
 
 //inline fun <Out : Any> Route.put(noinline handler: suspend (Unit) -> Out): Unit {
@@ -81,17 +91,12 @@ inline fun <reified In : Any, reified Out : Any> Route.post(
 //    endpoints.add(endpoint)
 //}
 
-fun Route.route(pathSegment: String, lambda: Route.() -> Unit) {
-    val route = Route(pathSegment).apply(lambda)
-    children.add(route)
+fun KrpcRoute.krpcRoute(pathSegment: String, lambda: KrpcRoute.() -> Unit) {
+    val krpcRoute = KrpcRoute(pathSegment).apply(lambda)
+    children.add(krpcRoute)
 }
 
-fun Router.route(pathSegment: String, lambda: Route.() -> Unit): Unit {
-    val route = Route(pathSegment).apply(lambda)
-    routes.add(route)
-}
-
-fun router(lambda: Router.() -> Unit): Router {
-    val router = Router().apply(lambda)
-    return router
+fun Router.krpcRoute(pathSegment: String, lambda: KrpcRoute.() -> Unit): Unit {
+    val krpcRoute = KrpcRoute(pathSegment).apply(lambda)
+    krpcRoutes.add(krpcRoute)
 }

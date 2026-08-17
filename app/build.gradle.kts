@@ -17,6 +17,14 @@ kotlin {
 dependencies {
     // Project "app" depends on project "utils". (Project paths are separated with ":", so ":utils" refers to the top-level "utils" project.)
     implementation(project(":utils"))
+    implementation(libs.ktorServerCore)
+    implementation(libs.ktorServerNetty)
+    implementation(libs.ktorServerContentNegotiation)
+    implementation(libs.ktorSerializationKotlinxJson)
+    implementation(libs.logbackClassic)
+
+    implementation(libs.arrow.core)
+    implementation(libs.arrow.fx.coroutines)
 
     testImplementation(kotlin("test"))
 
