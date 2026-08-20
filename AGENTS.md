@@ -5,6 +5,13 @@
 `krpc` is a Kotlin/JVM Gradle multi-module project. It currently contains an
 experimental RPC/route DSL and a small Ktor server used to exercise it.
 
+## Project direction
+
+The DSL aims to provide full-stack type safety: the server API declaration
+should be the single source of truth for the API shape and its request and
+response DTOs. The intended outcome is a generated client that uses those same
+DTOs, while keeping the route declaration ergonomic for Ktor applications.
+
 ## Modules
 
 - `app`: application and DSL experiments. The primary source file is
