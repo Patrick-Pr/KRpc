@@ -1,5 +1,6 @@
 package demo
 
+import dsl.Krpc
 import dsl.get
 import dsl.krpcRoute
 import dsl.post
@@ -23,6 +24,7 @@ fun main() {
 @Serializable
 data class Out(val value: String, val type: String)
 
+@Krpc
 val api = router {
     krpcRoute("/") {
         get<Out> {

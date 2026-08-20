@@ -1,7 +1,11 @@
 package dsl
 
+import kotlinx.serialization.Serializable
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
+
+@Target(AnnotationTarget.PROPERTY)
+annotation class Krpc
 
 sealed interface QueryParam {
     data class StringParam(val key: String) : QueryParam
@@ -12,6 +16,7 @@ sealed interface QueryParam {
     data class BoolParam(val key: Boolean) : QueryParam
 }
 
+@Serializable
 data class PathParam(val name: String) : QueryParam
 
 enum class Method {
@@ -22,12 +27,14 @@ enum class Method {
 @Target(AnnotationTarget.CLASS)
 annotation class KRpcDSL
 
+@Serializable
 class Router internal constructor() {
     val krpcRoutes = mutableListOf<KrpcRoute>()
 
 }
 
 @KRpcDSL
+@Serializable
 class KrpcRoute internal constructor(val path: String) {
     val endpoints = mutableListOf<Endpoint>()
     val children = mutableListOf<KrpcRoute>()
@@ -50,6 +57,7 @@ interface Endpoint {
     val responseType: KType
 }
 
+@Serializable
 data class TypedGetEndpoint<Out : Any> constructor(
     override var method: Method,
     override val pathParam: PathParam?,

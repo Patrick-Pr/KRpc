@@ -8,8 +8,18 @@ plugins {
     application
 }
 
+
+val krpcContractDirectory =
+    layout.buildDirectory.dir("krpc/generated/main")
 kotlin {
     jvmToolchain(25)
+    compilerOptions {
+        freeCompilerArgs.add("-P")
+        freeCompilerArgs.add(
+            "plugin:dev.krpc.plugin:contractOutputDir=" +
+                    krpcContractDirectory.get().asFile.absolutePath
+        )
+    }
 //    compilerOptions {
 //        freeCompilerArgs.add("-Xverify-ir")
 //    }
