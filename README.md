@@ -1,23 +1,71 @@
-# krpc
+# Krpc
 
-This project uses [Gradle](https://gradle.org/).
-To build and run the application, use the *Gradle* tool window by clicking the Gradle icon in the right-hand toolbar,
-or run it directly from the terminal:
+# Disclaimer
 
-* Run `./gradlew run` to build and run the application.
-* Run `./gradlew build` to only build the application.
-* Run `./gradlew check` to run all checks, including tests.
-* Run `./gradlew clean` to clean all build outputs.
+I am very early in development and actively experimenting with how I want to solve this problem aswell as learning new
+things alongside. Therefore, nothing is
+final
+and the code in this repository might not have the
+highest quality yet.
 
-Note the usage of the Gradle Wrapper (`./gradlew`).
-This is the suggested way to use Gradle in production projects.
+# Introduction
 
-[Learn more about the Gradle Wrapper](https://docs.gradle.org/current/userguide/gradle_wrapper.html).
+The aim of this repository is to deepen my knowledge of Kotlin while trying to create something that I
+miss dearly from fullstack Typescript.
 
-[Learn more about Gradle tasks](https://docs.gradle.org/current/userguide/command_line_interface.html#common_tasks).
+## What
 
-This project follows the suggested multi-module setup and consists of the `app` and `utils` subprojects.
-The shared build logic was extracted to a convention plugin located in `buildSrc`.
+In fullstack Typescript there is this `fullstack type safety` term which came up some time ago. It describes the
+pursuit of closing the air gap between the client and server. Here I am trying to bring this feeling to Kotlin. My goal
+is for the API declaration on the server to be the single source of truth for how the API and the DTO's coming in and
+out of the server are shaped. To archive this, I want to generate a client from this API description.
+Regarding developer experience, I am looking at [trpc](https://trpc.io/)
+and [Orpc](https://www.google.com/search?client=firefox-b-d&q=orpc) from the Typescript ecosystem.
 
-This project uses a version catalog (see `gradle/libs.versions.toml`) to declare and version dependencies
-and both a build cache and a configuration cache (see `gradle.properties`).
+in [Goals](#Goals) I will show a bit more how I want things to look and feel.
+
+## Why
+
+I am a big fan of the idea of fullstack type safety. Starting my career with Java
+development, and to be honest sometimes later as well, I worked in projects where the client and server were virtually
+air gapped.
+They both had their own set of DTO's written and drift between these DTO's happened always.
+
+At the time I discovered that something like [trpc](https://trpc.io/) exists I was delighted and wondered why it is not
+as big a deal in the JVM ecosystem. Recently I was able to use some of these tools in a work context. This
+strengthened my belief that fullstack type safety is something worth considering and adopting at least some parts of it.
+
+## Goals
+
+My goal for this project is to be able to write code roughly like this using a Ktor server
+
+```kotlin
+val api = router {
+    krpcRoute("/") {
+        krpcRoute("action") {
+            get<Out> {
+                Out("Hello", "Peter")
+            }
+            post<String, Out> { input ->
+                Out("POST", input)
+            }
+        }
+    }
+}
+
+fun Application.module() {
+    routing {
+        api.installInto(this)
+    }
+}
+```
+
+and be able to import, instantiate, and use a client straight away with the same DTOs used in the route handlers.
+
+```kotlin
+import krpc.generated.Client
+
+val client = Client("https://my.server.domain.com")
+
+val result = client.action.get()
+```
