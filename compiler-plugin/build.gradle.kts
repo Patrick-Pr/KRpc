@@ -3,5 +3,8 @@ plugins {
 }
 
 dependencies {
+    implementation(project(":app"))
+    implementation(libs.kotlinxSerialization)
+
     compileOnly(libs.kotlinCompilerEmbeddable)
 }
