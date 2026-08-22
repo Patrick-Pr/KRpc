@@ -27,13 +27,25 @@ data class Out(val value: String, val type: String)
 @Krpc
 val api = router {
     krpcRoute("/") {
-        get<Out> {
-            println("sldkjfsldjflksjd")
-            Out("Hello", "slkdjflsd")
+        krpcRoute("health") {
+            get<String> {
+                "Healthy"
+            }
         }
-        post<String, Out> { input ->
-            println("POST skljdf;lsj")
-            Out(input, "POST")
+        krpcRoute("/users") {
+            get<Out> {
+                println("sldkjfsldjflksjd")
+                Out("Hello", "slkdjflsd")
+            }
+            post<String, Out> { input ->
+                println("POST skljdf;lsj")
+                Out(input, "POST")
+            }
+            krpcRoute("{id}") {
+                get<String> {
+                    "skdjfsldj"
+                }
+            }
         }
     }
 }

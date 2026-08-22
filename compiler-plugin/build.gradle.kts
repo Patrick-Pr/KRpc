@@ -1,9 +1,9 @@
 plugins {
     id("buildsrc.convention.kotlin-jvm")
+    alias(libs.plugins.kotlinPluginSerialization)
 }
 
 dependencies {
-    implementation(project(":app"))
     implementation(libs.kotlinxSerialization)
 
     compileOnly(libs.kotlinCompilerEmbeddable)
