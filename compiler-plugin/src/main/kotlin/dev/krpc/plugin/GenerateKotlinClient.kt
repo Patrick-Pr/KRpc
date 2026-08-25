@@ -35,7 +35,7 @@ class GenerateKotlinClient(
     private val contractOutputDirectory: Path,
     private val messageCollector: MessageCollector,
 ) : IrGenerationExtension {
-    val rootRoutes = mutableListOf<KrpcRoute>()
+    var rootRoute: KrpcRoute? = null
 
     @OptIn(UnsafeDuringIrConstructionAPI::class)
     override fun generate(
@@ -62,10 +62,10 @@ class GenerateKotlinClient(
 
                         messageCollector.report(
                             CompilerMessageSeverity.INFO,
-                            "[GenerateKotlinClient] -> routes ${rootRoutes.joinToString("\n")}"
+                            "[GenerateKotlinClient] -> routes $rootRoute"
                         )
 
-                        writeContract(contractOutputDirectory, rootRoutes)
+                        writeContract(contractOutputDirectory, rootRoute)
                     }
 
                     return declaration
@@ -144,7 +144,10 @@ class GenerateKotlinClient(
 
                     val route = KrpcRoute(pathSegment)
                     if (parentRoute == null) {
-                        rootRoutes += route
+                        require(rootRoute == null) {
+                            "Only one root route is allowed"
+                        }
+                        rootRoute = route
                     }
 
                     parentRoute?.children += route
@@ -237,9 +240,14 @@ class GenerateKotlinClient(
         })
     }
 
-    fun writeContract(outputDir: Path, routes: List<KrpcRoute>) {
+    fun writeContract(outputDir: Path, route: KrpcRoute?) {
         Files.createDirectories(outputDir)
-        val contract = Contract(routes)
+
+        if (route == null) {
+            error("Cannot write contract without root route.")
+        }
+
+        val contract = Contract(route)
 
         messageCollector.report(
             CompilerMessageSeverity.INFO,

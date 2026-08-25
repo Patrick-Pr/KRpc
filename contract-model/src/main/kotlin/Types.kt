@@ -41,7 +41,7 @@ enum class Method {
 }
 
 @Serializable
-data class Contract(val routes: List<KrpcRoute> = emptyList()) : TypeRef("dev.krpc.plugin.Contract") {}
+data class Contract(val route: KrpcRoute) : TypeRef("dev.krpc.plugin.Contract") {}
 
 @Serializable
 class KrpcRoute(val path: String) : TypeRef("dsl.KrpcRoute") {

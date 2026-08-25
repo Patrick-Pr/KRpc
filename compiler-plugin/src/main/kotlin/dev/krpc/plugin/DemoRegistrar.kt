@@ -11,7 +11,7 @@ import java.nio.file.Path
 
 @OptIn(ExperimentalCompilerApi::class)
 class DemoRegistrar : CompilerPluginRegistrar() {
-    override val pluginId = "dev.krpc.ir-demo"
+    override val pluginId = "dev.krpc.plugin"
     override val supportsK2 = true
 
     override fun ExtensionStorage.registerExtensions(
@@ -29,7 +29,7 @@ class DemoRegistrar : CompilerPluginRegistrar() {
             IrGenerationExtension.registerExtension(GenerateKotlinClient(contractOutputDirectory, messages))
         }
 
-        IrGenerationExtension.registerExtension(ReplaceBodyExtension(messages))
+//        IrGenerationExtension.registerExtension(ReplaceBodyExtension(messages))
 
     }
 }

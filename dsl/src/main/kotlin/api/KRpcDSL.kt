@@ -29,7 +29,7 @@ annotation class KRpcDSL
 
 @Serializable
 class Router internal constructor() {
-    val krpcRoutes = mutableListOf<KrpcRoute>()
+    var rootRoute: KrpcRoute? = null
 
 }
 
@@ -110,5 +110,5 @@ fun KrpcRoute.krpcRoute(pathSegment: String, lambda: KrpcRoute.() -> Unit) {
 
 fun Router.krpcRoute(pathSegment: String, lambda: KrpcRoute.() -> Unit): Unit {
     val krpcRoute = KrpcRoute(pathSegment).apply(lambda)
-    krpcRoutes.add(krpcRoute)
+    rootRoute = krpcRoute
 }

@@ -49,6 +49,11 @@ val api = router {
                 get<String> {
                     "skdjfsldj"
                 }
+                krpcRoute("/users") {
+                    get<String> {
+                        "lskdjflsdj"
+                    }
+                }
             }
         }
     }

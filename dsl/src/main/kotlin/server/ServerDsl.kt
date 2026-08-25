@@ -30,9 +30,7 @@ suspend fun <In : Any, Out : Any> TypedPostEndpoint<In, Out>.execute(call: Appli
 
 
 fun Router.installInto(parent: Route) {
-    krpcRoutes.forEach { route ->
-        route.installInto(parent)
-    }
+    rootRoute?.installInto(parent) ?: error("A Router always needs a root route")
 }
 
 fun KrpcRoute.installInto(parent: Route) {

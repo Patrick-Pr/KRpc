@@ -57,62 +57,85 @@ private fun readContract(path: Path): Contract =
 private fun renderClient(contract: Contract): String = buildString {
     appendLine("package krpc.generated")
     appendLine()
-    append(renderRouteClasses(route))
+    append(renderRouteClasses(contract.route.children, contract.route))
     appendLine("class KrpcClient(private val baseUrl: String) {")
-    contract.routes.forEach { route ->
 //        appendLine($$"val $${if (route.path == "/") "root" else route.path} = $${(route.toClassname())}(\"$baseUrl/$$route.path\") {")
-        route.endpoints.forEach { endpoint ->
-            when (endpoint) {
-                is TypedGetEndpoint -> {
-                    appendLine("\t fun get() = \"get\"")
-                }
+    contract.route.endpoints.forEach { endpoint ->
+        when (endpoint) {
+            is TypedGetEndpoint -> {
+                appendLine("\t fun get() = \"get\"")
+            }
 
-                is TypedPostEndpoint -> {
-                    appendLine("\t fun post() = \"post\"")
-                }
+            is TypedPostEndpoint -> {
+                appendLine("\t fun post() = \"post\"")
             }
         }
+    }
+    contract.route.children.forEach { child ->
+        appendLine($$"\t val $${pathToClassname(child.path).firstCharToLowerCase()} = $${pathToClassname(child.path)}Route(\"$baseUrl/$${child.path}\")")
     }
     appendLine("}")
 }
 
-fun renderRouteClasses(routes: List<KrpcRoute>): String {
-    val childRouteClasses = routes.joinToString("\n\n") { route -> renderRouteClasses(route.children) }
+fun renderRouteClasses(routes: List<KrpcRoute>, parentRoute: KrpcRoute): String {
+    val childRouteClasses = routes.joinToString("\n\n") { route -> renderRouteClasses(route.children, route) }
     return buildString {
         routes.forEach { route ->
-            val className = route.toClassname()
-            appendLine("class $className(val path: String) {")
+            val className = pathToClassname("${parentRoute.path}/${route.path}").let { str -> "${str}Route" }
+            if (route.path.trim().startsWith("{") && route.path.trim().endsWith("}")) {
+                appendLine("class $className(val path: String, val pathValue: String) {")
+            } else {
+                appendLine("class $className(val path: String) {")
+            }
             route.endpoints.forEach { endpoint ->
                 when (endpoint) {
                     is TypedGetEndpoint -> {
-                        appendLine($$"\t fun get() = \"$path/get\"")
+                        appendLine("\t fun get() = \"get\"")
                     }
 
                     is TypedPostEndpoint -> {
-                        appendLine($$"\t fun post() = \"$path/post\"")
+                        appendLine("\t fun post() = \"post\"")
                     }
                 }
             }
+            route.children.forEach { child ->
+                val childClassName = pathToClassname("${route.path}/${child.path}").let { str -> "${str}Route" }
+                if (child.path.trim().startsWith("{") && child.path.trim().endsWith("}")) {
+                    val dynamicParam = child.path.substringAfter("{").substringBefore("}").firstCharToupperCase()
+                    appendLine($$"\tval by$${dynamicParam} = fun(value: String) = UsersByIdRoute(pathValue = value, path = \"$path/$value\")")
+                } else {
+                    appendLine($$"\t val $${pathToClassname(child.path).firstCharToLowerCase()} = $${childClassName}(\"$path/$${child.path}\")")
+                }
+            }
+            appendLine("}")
         }
         append(childRouteClasses)
     }
 }
 
-fun renderNested(route: KrpcRoute): String {
-    val endpoints = buildString {
-        route.endpoints.forEach { endpoint ->
-            when (endpoint) {
-                is TypedGetEndpoint -> {
-                    appendLine("\t fun get() = \"get\"")
-                }
-
-                is TypedPostEndpoint -> {
-                    appendLine("\t fun post() = \"post\"")
-                }
-            }
-        }
-    }
-}
+//fun renderNested(routes: List<KrpcRoute>, parentRoute: KrpcRoute): String {
+//    val nestedProperties = routes.joinToString("\n\n") { route -> renderNested(route.children, parentRoute) }
+//    return buildString {
+//        routes.forEach { route ->
+//            route.endpoints.forEach { endpoint ->
+//                when (endpoint) {
+//                    is TypedGetEndpoint -> {
+//                        appendLine("\t fun get() = \"get\"")
+//                    }
+//
+//                    is TypedPostEndpoint -> {
+//                        appendLine("\t fun post() = \"post\"")
+//                    }
+//                }
+//            }
+//            route.children.forEach { child ->
+//                appendLine($$"\t val $${pathToClassname(child.path).firstCharToLowerCase()}() = $${pathToClassname(child.path)}(\"$path/$${child.path}\")")
+//            }
+//        }
+//        append(nestedProperties)
+//    }
+//
+//}
 
 fun KrpcRoute.toClassname(): String {
     val name = if (path == "/") "root" else path
@@ -120,6 +143,30 @@ fun KrpcRoute.toClassname(): String {
         if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.titlecase(
             Locale.getDefault()
         )
+    }
+}
+
+fun pathToClassname(path: String): String = path
+    .removePrefix("/")
+    .removeSuffix("/")
+    .replace("/", " ")
+    .split(" ")
+    .joinToString("") { str ->
+        if (str.trim().startsWith("") && str.trim().endsWith("}"))
+            "By${str.removePrefix("{").removeSuffix("}").firstCharToupperCase()}"
+        else
+            str.firstCharToupperCase()
+    }
+
+fun String.firstCharToupperCase(): String {
+    return this.replaceFirstChar {
+        if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString()
+    }
+}
+
+fun String.firstCharToLowerCase(): String {
+    return this.replaceFirstChar {
+        if (it.isUpperCase()) it.lowercase(Locale.getDefault()) else it.toString()
     }
 }
 
