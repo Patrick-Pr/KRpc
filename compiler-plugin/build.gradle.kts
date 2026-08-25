@@ -4,6 +4,7 @@ plugins {
 }
 
 dependencies {
+    implementation(project(":contract-model"))
     implementation(libs.kotlinxSerialization)
 
     compileOnly(libs.kotlinCompilerEmbeddable)

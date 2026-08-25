@@ -11,9 +11,24 @@ version = "unspecified"
 repositories {
     mavenCentral()
 }
+val krpcManifestDirectory =
+    layout.buildDirectory.dir("krpc/generated/manifest")
+
+kotlin {
+    jvmToolchain(25)
+    compilerOptions {
+        freeCompilerArgs.add("-P")
+        freeCompilerArgs.add(
+            "plugin:dev.krpc.plugin:contractOutputDir=" +
+                    krpcManifestDirectory.get().asFile.absolutePath
+        )
+    }
+}
+
 
 dependencies {
     implementation(project(":utils"))
+    implementation(project(":dsl"))
 
     implementation(libs.ktorServerCore)
     implementation(libs.ktorServerNetty)
@@ -22,11 +37,11 @@ dependencies {
     implementation(libs.logbackClassic)
 
     testImplementation(kotlin("test"))
+
+    add("kotlinCompilerPluginClasspath", project(":compiler-plugin"))
 }
 
-kotlin {
-    jvmToolchain(25)
-}
+
 
 tasks.test {
     useJUnitPlatform()

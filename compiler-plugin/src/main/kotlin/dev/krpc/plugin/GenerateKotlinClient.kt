@@ -1,8 +1,9 @@
 package dev.krpc.plugin
 
-import kotlinx.serialization.EncodeDefault
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
+import Contract
+import KrpcRoute
+import Param
+import TypedGetEndpoint
 import kotlinx.serialization.json.Json
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
@@ -29,88 +30,6 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
 
-@Serializable
-abstract class TypeRef(
-    @SerialName("typeRef")
-    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
-    val type: String
-) {}
-
-@Serializable
-sealed interface Param {
-    @Serializable
-    data class StringParam(val key: String) : Param
-
-    @Serializable
-    data class IntParam(val key: Int) : Param
-
-    @Serializable
-    data class LongParam(val key: Long) : Param
-
-    @Serializable
-    data class FloatParam(val key: Float) : Param
-
-    @Serializable
-    data class DoubleParam(val key: Double) : Param
-
-    @Serializable
-    data class BoolParam(val key: Boolean) : Param
-
-    @Serializable
-    data class PathParam(val key: String) : Param, TypeRef("dsl.PathParam") {
-    }
-}
-
-
-@Serializable
-enum class Method {
-    GET, POST, PUT, DELETE
-}
-
-@Serializable
-data class Contract(val routes: List<KrpcRoute> = emptyList()) {}
-
-@Serializable
-class KrpcRoute(val path: String) : TypeRef("dsl.KrpcRoute") {
-    val endpoints = mutableListOf<Endpoint>()
-    val children = mutableListOf<KrpcRoute>()
-
-    override fun toString(): String {
-        return "Route(path=$path, endpoints=$endpoints, children=$children)"
-    }
-}
-
-@Serializable
-sealed interface Endpoint {
-    var method: Method
-    val pathParam: Param.PathParam?
-    var params: List<Param>
-
-    val requestType: String
-    val responseType: String
-}
-
-@Serializable
-data class TypedGetEndpoint(
-    override val pathParam: Param.PathParam?,
-    override var params: List<Param>,
-    override val requestType: String,
-    override val responseType: String,
-) : Endpoint, TypeRef("dsl.TypedGetEndpoint") {
-    override var method: Method = Method.GET
-
-}
-
-@Serializable
-data class TypedPostEndpoint(
-    override val pathParam: Param.PathParam?,
-    override var params: List<Param>,
-    override val requestType: String,
-    override val responseType: String,
-) : Endpoint, TypeRef("dsl.TypedPostEndpoint") {
-    override var method: Method = Method.POST
-}
-
 
 class GenerateKotlinClient(
     private val contractOutputDirectory: Path,
@@ -128,7 +47,12 @@ class GenerateKotlinClient(
                 override fun visitProperty(declaration: IrProperty): IrStatement {
                     super.visitProperty(declaration)
 
-                    if (declaration.hasAnnotation(FqName("dsl.Krpc"))) {
+                    messageCollector.report(
+                        CompilerMessageSeverity.INFO,
+                        "!!!! the output directory is $contractOutputDirectory"
+                    )
+
+                    if (declaration.hasAnnotation(FqName("api.Krpc"))) {
                         messageCollector.report(
                             CompilerMessageSeverity.INFO,
                             "[VisitProperty -> ${declaration.name.asString()}] -> has Krpc Annotation"
@@ -147,22 +71,22 @@ class GenerateKotlinClient(
                     return declaration
                 }
 
-                override fun visitSimpleFunction(declaration: IrSimpleFunction): IrStatement {
-                    super.visitSimpleFunction(declaration)
-
-                    messageCollector.report(
-                        CompilerMessageSeverity.INFO,
-                        "!!!! the output directory is $contractOutputDirectory"
-                    )
-
-
-                    if (declaration.hasAnnotation(FqName("dsl.Krpc"))) {
-                        writeContract(
-                            contractOutputDirectory, rootRoutes
-                        )
-                    }
-                    return declaration
-                }
+//                override fun visitSimpleFunction(declaration: IrSimpleFunction): IrStatement {
+//                    super.visitSimpleFunction(declaration)
+//
+//                    messageCollector.report(
+//                        CompilerMessageSeverity.INFO,
+//                        "!!!! the output directory is $contractOutputDirectory"
+//                    )
+//
+//
+//                    if (declaration.hasAnnotation(FqName("api.Krpc"))) {
+//                        writeContract(
+//                            contractOutputDirectory, rootRoutes
+//                        )
+//                    }
+//                    return declaration
+//                }
             },
             data = null
         )
@@ -208,7 +132,7 @@ class GenerateKotlinClient(
         visitCallsIn(body) { call ->
             val calledFunction = call.symbol.owner.fqNameWhenAvailable
             when (calledFunction) {
-                FqName("dsl.krpcRoute") -> {
+                FqName("api.krpcRoute") -> {
                     val pathSegment = (
                             call.regularArgument("pathSegment") as? IrConst
                             )?.value as? String
@@ -234,7 +158,7 @@ class GenerateKotlinClient(
 
                     messageCollector.report(
                         CompilerMessageSeverity.INFO,
-                        "[GenerateKotlinClient.collectRouteScope] called fun dsl.KrpcRoute -> ${call.symbol.owner.fqNameWhenAvailable}"
+                        "[GenerateKotlinClient.collectRouteScope] called fun api.KrpcRoute -> ${call.symbol.owner.fqNameWhenAvailable}"
                     )
 
                     collectRouteScope(
@@ -246,7 +170,7 @@ class GenerateKotlinClient(
                     false
                 }
 
-                FqName("dsl.get") -> {
+                FqName("api.get") -> {
 
                     val responseType = call.typeArgumentNamed("Out")
                         ?: error("Could not resolve GET response type")
@@ -269,7 +193,7 @@ class GenerateKotlinClient(
                     false
                 }
 
-                FqName("dsl.post") -> {
+                FqName("api.post") -> {
                     val typedArgument = call.typeArgumentNamed("In") ?: error(
                         "Could not resolve POST response type"
                     )
@@ -312,21 +236,27 @@ class GenerateKotlinClient(
             }
         })
     }
+
+    fun writeContract(outputDir: Path, routes: List<KrpcRoute>) {
+        Files.createDirectories(outputDir)
+        val contract = Contract(routes)
+
+        messageCollector.report(
+            CompilerMessageSeverity.INFO,
+            "[GenerateKotlinClient.writeManifest] -> writing\n ${Json.encodeToString(contract)}\n--------\nTo $outputDir"
+        )
+
+        Files.writeString(
+            outputDir.resolve("contract_output.json"),
+            Json.encodeToString(contract),
+            Charsets.UTF_8,
+            StandardOpenOption.CREATE,
+            StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE
+        )
+
+    }
 }
 
-
-fun writeContract(outputDir: Path, routes: List<KrpcRoute>) {
-    Files.createDirectories(outputDir)
-
-    Files.writeString(
-        outputDir.resolve("contract_output.json"),
-        Json.encodeToString(routes),
-        Charsets.UTF_8,
-        StandardOpenOption.CREATE,
-        StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE
-    )
-
-}
 
 @OptIn(UnsafeDuringIrConstructionAPI::class)
 private fun IrCall.regularArgument(name: String): IrExpression? {

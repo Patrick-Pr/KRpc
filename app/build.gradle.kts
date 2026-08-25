@@ -3,23 +3,26 @@ plugins {
     // The shared code is located in `buildSrc/src/main/kotlin/kotlin-jvm.gradle.kts`.
     id("buildsrc.convention.kotlin-jvm")
     alias(libs.plugins.kotlinPluginSerialization)
+    alias(libs.plugins.ksp)
 
     // Apply the Application plugin to add support for building an executable JVM application.
     application
 }
 
+val contractsDirectory = layout.buildDirectory.dir("krpc/generated/contracts")
+val serverManifest = project(":server").layout.buildDirectory.dir("krpc/generated/manifest/contract_output.json")
+ksp {
+    arg("krpc.contractDirectory", contractsDirectory.get().asFile.absolutePath)
+    arg("krpc.manifest", serverManifest.get().asFile.absolutePath)
+}
+tasks.matching { it.name == "kspKotlin" }.configureEach {
+    dependsOn(":server:compileKotlin")
+    inputs.file(serverManifest).withPathSensitivity(PathSensitivity.RELATIVE)
+}
 
-val krpcContractDirectory =
-    layout.buildDirectory.dir("krpc/generated/main")
 kotlin {
     jvmToolchain(25)
-    compilerOptions {
-        freeCompilerArgs.add("-P")
-        freeCompilerArgs.add(
-            "plugin:dev.krpc.plugin:contractOutputDir=" +
-                    krpcContractDirectory.get().asFile.absolutePath
-        )
-    }
+
 //    compilerOptions {
 //        freeCompilerArgs.add("-Xverify-ir")
 //    }
@@ -27,6 +30,7 @@ kotlin {
 
 dependencies {
     // Project "app" depends on project "utils". (Project paths are separated with ":", so ":utils" refers to the top-level "utils" project.)
+    ksp(project(":ksp-processor"))
     implementation(project(":utils"))
     implementation(libs.ktorServerCore)
     implementation(libs.ktorServerNetty)
@@ -38,8 +42,6 @@ dependencies {
     implementation(libs.arrow.fx.coroutines)
 
     testImplementation(kotlin("test"))
-
-    add("kotlinCompilerPluginClasspath", project(":compiler-plugin"))
 }
 
 application {

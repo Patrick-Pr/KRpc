@@ -1,4 +1,4 @@
-package dsl
+package api
 
 import kotlinx.serialization.Serializable
 import kotlin.reflect.KType

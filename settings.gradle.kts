@@ -23,5 +23,8 @@ include(":app")
 include(":utils")
 
 rootProject.name = "krpc"
-include("server")
+include(":server")
 include(":compiler-plugin")
+include(":contract-model")
+include(":ksp-processor")
+include("dsl")

@@ -1,23 +1,57 @@
 package de.pr.loaf.software.server
 
-import io.ktor.http.HttpMethod
-import io.ktor.http.HttpMethod.Companion
-import io.ktor.serialization.kotlinx.json.json
+import api.Krpc
+import api.get
+import api.krpcRoute
+import api.post
+import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
-import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.server.response.*
+import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.routing.*
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import kotlin.reflect.KClass
-import kotlin.reflect.KType
-import kotlin.reflect.typeOf
+import server.installInto
+import server.router
 
 fun main() {
     embeddedServer(Netty, port = 8080) {
         module()
     }.start(wait = true)
+}
+
+
+@Serializable
+data class Out(val value: String, val type: String)
+
+@Krpc
+val api = router {
+    krpcRoute("/") {
+        get<Int> {
+            15
+        }
+        krpcRoute("health") {
+            get<String> {
+                "Healthy"
+            }
+        }
+        krpcRoute("/users") {
+            get<Out> {
+                println("sldkjfsldjflksjd")
+                Out("Hello", "slkdjflsd")
+            }
+            post<String, Out> { input ->
+                println("POST skljdf;lsj")
+                Out(input, "POST")
+            }
+            krpcRoute("{id}") {
+                get<String> {
+                    "skdjfsldj"
+                }
+            }
+        }
+    }
 }
 
 fun Application.module() {
@@ -27,35 +61,7 @@ fun Application.module() {
             isLenient = true
         })
     }
-    val root = routing {
-        get(path = "/", t2 = response<String>()) {
-//            call.respondText("krpc server running")
-            call.respondWith(listOf("krpc server running"))
-        }
-
-        route("/users") {
-            get {
-                call.respondText("users")
-            }
-
-            get("{id}") {
-                call.respondText("user ${call.parameters["id"]}")
-            }
-        }
+    routing {
+        api.installInto(this)
     }
-
-
 }
-
-fun Route.get(path: String, t1: KType = typeOf<Unit>(), t2: KType = typeOf<Unit>(), body: suspend RoutingContext.() -> Unit ): Route {
-    return method(HttpMethod.Get) { handle(body) }
-}
-
-suspend inline fun <reified Out: Any>RoutingCall.respondWith(value: Out) {
-    val type = typeOf<Out>()
-    println(type)
-    this.respond(value)
-}
-
-inline fun <reified T: Any>request() = typeOf<T>()
-inline fun <reified T: Any>response() = typeOf<T>()
